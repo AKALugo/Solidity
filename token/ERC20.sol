@@ -1,101 +1,189 @@
-//SPDX-License-Identifier: MIT
-pragma solidity >=0.4.4 <0.7.0;
-pragma experimental ABIEncoderV2;
-import "./SafeMath.sol";
+// SPDX-License-Identifier: GPL-3.0
+pragma solidity 0.8.12;
 
-// Interface del token ERC20
+// Interface Estandar ERC20
 interface IERC20 {
-    //Devuelve la cantidad de tokes en existencia
-    function totalSupply() external view returns(uint256);
-
-    //Devuelve la cantidad de tokes para una dirección indicada por parámetro
+   
+    // Devuelve la cantidad de tokes en existencia
+    function totalSupply() external view returns (uint256);
+    // Devuelve la cantidad de tokens para una dirección indicada por parámetro
     function balanceOf(address account) external view returns (uint256);
-
-    //Devuelve el número de token que el spender podrá gastar en nombre del propietario
+    // Devuelve un bool resultado de la operacion indicada
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    // Devuelve el número de token que el spender podrá gastar en nombre del propietario.
     function allowance(address owner, address spender) external view returns (uint256);
-
-    //Devuelve un bool resultado de la operacion indicada
-    function transfer(address recipient, uint256 numTokens) external returns(bool);
-
-    //Devuelve un bool resultado de la operación de gasto
-    function approve(address spender, uint amount) external returns(bool);
-
-    //Devuelve un valor bool resultado de la operación de paso de una cantidad de tokens usando el método allowance()
-    function transferFrom(address sender, address recipient, uint256 amount) external returns(bool);
-
-
-    //Evento que se emite en la transferencia del token.
-    event Transfer(address indexed from, address indexed to, uint256 amount);
-
-    //Evento que se debe transmitir cuando se establece una asignación con el método allowance()
+    // Devuelve un bool resultado de la operación de gasto
+    function approve(address spender, uint256 amount) external returns (bool);
+    //Devuelve un valor bool resultado de la operación de paso de una cantidad de tokens.
+    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
+    // Evento de transferencia.
+    event Transfer(address indexed from, address indexed to, uint256 value);
+    // Evento de quemado
+    event Burn(address indexed from, uint256 value);
+    // Evento de aprovación.
     event Approval(address indexed owner, address indexed spender, uint256 value);
 }
 
-contract ERC20Basic is IERC20 {
 
-    using SafeMath for uint256;
+pragma solidity 0.8.12;
 
-    string public constant name = "ERC20AKALugo";
-    string public constant symbol = "AKA";
-    uint8 public constant decimals = 18;
+// Interfaz datos del token
+interface IERC20Metadata is IERC20 {
+    function name() external view returns (string memory);
+    function symbol() external view returns (string memory);
+    function decimals() external view returns (uint256);
+}
 
-    mapping (address => uint) balances;
-    mapping (address => mapping (address => uint)) allowed;
-    uint256 totalSupply_;
+pragma solidity 0.8.12;
 
-    constructor (uint256 initialSupply) public {
-        totalSupply_ = initialSupply;
-        balances[msg.sender] = totalSupply_;
+abstract contract Context {
+    function _msgSender() internal view virtual returns (address) {
+        return msg.sender;
     }
 
-    event Transfer(address indexed from, address indexed to, uint256 amount);
-    event Approval(address indexed owner, address indexed spender, uint256 value);
+    function _msgData() internal view virtual returns (bytes calldata) {
+        this; // silence state mutability warning without generating bytecode
+        return msg.data;
+    }
+}
 
-    function totalSupply() public override view returns(uint256) {
-        return totalSupply_;
+pragma solidity 0.8.12;
+
+// Contrato del Estandar ERC20.
+contract ERC20 is Context, IERC20, IERC20Metadata {
+    // Relación billetera cantidad de token.
+    mapping (address => uint256) private _balances;
+    // Relación billetera con billetera y tokens prestados.
+    mapping (address => mapping (address => uint256)) private _allowances;
+    uint256 private _totalSupply;
+    uint256 private _decimals;
+    string private _name;
+    string private _symbol;
+    address private _owner;
+
+    modifier OnlyOwner(address addr) {
+        require (addr == _owner, "Only the owner can use this function");
+        _;
     }
 
-    function increaseTotalSupply(uint newTokensAmount) public {
-        totalSupply_ += newTokensAmount;
-        balances[msg.sender] += newTokensAmount;
+    constructor (string memory name_, string memory symbol_,uint256 initialBalance_,uint256 decimals_) {
+        _name = name_;
+        _symbol = symbol_;
+        _totalSupply = initialBalance_* 10**decimals_;
+        _balances[msg.sender] = _totalSupply;
+        _decimals = decimals_;
+        _owner = msg.sender;
+        emit Transfer(address(0), msg.sender, _totalSupply);
     }
 
-    function balanceOf(address account) public override view returns (uint256) {
-        return balances[account];
+    function name() public view virtual override returns (string memory) {
+        return _name;
     }
 
-    function allowance(address owner, address spender) public override view returns (uint256) {
-        return allowed[owner][spender];
+    function symbol() public view virtual override returns (string memory) {
+        return _symbol;
     }
 
-    function transfer(address recipient, uint256 numTokens) public override returns(bool) {
-        require (numTokens <= balances[msg.sender]);
+    function decimals() public view virtual override returns (uint256) {
+        return _decimals;
+    }
 
-        balances[msg.sender] = balances[msg.sender].sub(numTokens); 
-        balances[recipient] = balances[recipient].add(numTokens);
+    function totalSupply() public view virtual override returns (uint256) {
+        return _totalSupply;
+    }
 
-        emit Transfer(msg.sender, recipient, numTokens);
+    function balanceOf(address account) public view virtual override returns (uint256) {
+        return _balances[account];
+    }
+
+    function transfer(address recipient, uint256 amount) public virtual override returns (bool) {
+        _transfer(_msgSender(), recipient, amount);
+        return true;
+    }
+
+    function allowance(address owner, address spender) public view virtual override returns (uint256) {
+        return _allowances[owner][spender];
+    }
+
+    function approve(address spender, uint256 amount) public virtual override returns (bool) {
+        _approve(_msgSender(), spender, amount);
+        return true;
+    }
+
+    function transferFrom(address sender, address recipient, uint256 amount) public virtual override returns (bool) {
+        _transfer(sender, recipient, amount);
+
+        uint256 currentAllowance = _allowances[sender][_msgSender()];
+        require(currentAllowance >= amount, "Transfer amount exceeds allowance");
+        _approve(sender, _msgSender(), currentAllowance - amount);
 
         return true;
     }
 
-    function approve(address spender, uint numTokens) public override returns(bool) {
-        
-        allowed[msg.sender][spender] = numTokens;
-        emit Approval(msg.sender, spender, numTokens);
+    function increaseAllowance(address spender, uint256 addedValue) public virtual returns (bool) {
+        _approve(_msgSender(), spender, _allowances[_msgSender()][spender] + addedValue);
+        return true;
+    }
+
+   
+    function decreaseAllowance(address spender, uint256 subtractedValue) public virtual returns (bool) {
+        uint256 currentAllowance = _allowances[_msgSender()][spender];
+        require(currentAllowance >= subtractedValue, "Decreased allowance below zero");
+        _approve(_msgSender(), spender, currentAllowance - subtractedValue);
 
         return true;
     }
 
-    function transferFrom(address owner, address buyer, uint256 numTokens) public override returns(bool) {
-        require (balances[owner] >= numTokens);
-        require (allowed[owner][msg.sender] >= numTokens);
 
-        balances[owner] = balances[owner].sub(numTokens);
-        allowed[owner][msg.sender] = allowed[owner][msg.sender].sub(numTokens);
-        balances[buyer] = balances[buyer].add(numTokens);
+    function _transfer(address sender, address recipient, uint256 amount) internal virtual {
+        require(sender != address(0), "Transfer from the zero address");
+        require(recipient != address(0), "Transfer to the zero address");
 
-        emit Transfer(owner, buyer, numTokens); 
+        uint256 senderBalance = _balances[sender];
+        require(senderBalance >= amount, "Transfer amount exceeds balance");
+
+        _balances[sender] = senderBalance - amount;
+        _balances[recipient] += amount;
+
+        emit Transfer(sender, recipient, amount);
+    }
+
+    function _approve(address owner, address spender, uint256 amount) internal virtual {
+        require(owner != address(0), "Approve from the zero address");
+        require(spender != address(0), "Approve to the zero address");
+        _allowances[owner][spender] = amount;
+        emit Approval(owner, spender, amount);
+    }
+
+    function mint(uint256 amount) public OnlyOwner(msg.sender) returns(bool) {
+        require(msg.sender == _owner, "Only the owner can mint new tokens");
+        _totalSupply += amount;
+        _balances[_owner] += amount;
+        emit Transfer(address(0), _owner, amount);
         return true;
+    }
+
+
+    function burn(uint256 amount) public OnlyOwner(msg.sender) returns(bool) {
+        require(_balances[msg.sender] >= amount, "Amount exceeded");
+        _totalSupply -= amount;
+        _balances[msg.sender] -= amount;
+        emit Burn(msg.sender, amount);
+        return true;
+    }
+}
+
+pragma solidity ^0.8.0;
+
+
+contract MyToken is ERC20 {
+    constructor(
+        string memory name_,
+        string memory symbol_,
+        uint256 decimals_,
+        uint256 initialBalance_,
+        address payable feeReceiver_
+    ) payable ERC20(name_, symbol_,initialBalance_,decimals_) {
+        payable(feeReceiver_).transfer(msg.value);
     }
 }
