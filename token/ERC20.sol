@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity 0.8.12;
+pragma solidity ^0.8.12;
 
 // Interface Estandar ERC20
 interface IERC20 {
@@ -25,7 +25,7 @@ interface IERC20 {
 }
 
 
-pragma solidity 0.8.12;
+pragma solidity ^0.8.12;
 
 // Interfaz datos del token
 interface IERC20Metadata is IERC20 {
@@ -34,7 +34,7 @@ interface IERC20Metadata is IERC20 {
     function decimals() external view returns (uint256);
 }
 
-pragma solidity 0.8.12;
+pragma solidity ^0.8.12;
 
 abstract contract Context {
     function _msgSender() internal view virtual returns (address) {
@@ -47,7 +47,7 @@ abstract contract Context {
     }
 }
 
-pragma solidity 0.8.12;
+pragma solidity ^0.8.12;
 
 // Contrato del Estandar ERC20.
 contract ERC20 is Context, IERC20, IERC20Metadata {
